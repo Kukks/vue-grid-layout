@@ -29,6 +29,7 @@
             <input type="checkbox" v-model="draggable"/> Draggable
             <input type="checkbox" v-model="resizable"/> Resizable
             <input type="checkbox" v-model="mirrored"/> Mirrored
+            <input type="checkbox" v-model="fixedWidth"/> FixedWidth
             <br/>
             Row Height: <input type="number" v-model="rowHeight"/> Col nums: <input type="number" v-model="colNum"/>
             <br/>
@@ -39,7 +40,10 @@
                     :is-draggable="draggable"
                     :is-resizable="resizable"
                     :is-mirrored="mirrored"
-                    :use-css-transforms="true">
+                    :vertical-compact="true"
+                    :use-css-transforms="true"
+                    :fixed-width="fixedWidth"
+            >
                 <grid-item slot-scope="{item}"
                            :x="item.x"
                            :y="item.y"
@@ -66,6 +70,7 @@
                     :is-mirrored="mirrored"
                     :vertical-compact="true"
                     :use-css-transforms="true"
+                    :fixed-width="fixedWidth"
             >
                 <grid-item v-for="item in layout" :key="item.i"
                            :x="item.x"
@@ -95,6 +100,7 @@
     import ResponsiveGridLayout from './ResponsiveGridLayout.vue';
     import TestElement from './TestElement.vue';
     import CustomDragElement from './CustomDragElement.vue';
+    import {getDocumentDir, setDocumentDir} from "./DOM";
     //var eventBus = require('./eventBus');
 
     var testLayout = [
@@ -138,6 +144,7 @@
                 mirrored: false,
                 rowHeight: 30,
                 colNum: 12,
+                fixedWidth: false,
                 index: 0
             }
         },
@@ -186,17 +193,14 @@
              * Add change direction button
              */
             changeDirection() {
-                let documentDirection = (document.dir !=undefined) ?
-                    document.dir :
-                    document.getElementsByTagName("html")[0].getAttribute("dir");
+                let documentDirection = getDocumentDir();
                 let toggle = "";
                 if (documentDirection == "rtl") {
                     toggle = "ltr"
                 } else {
                     toggle = "rtl"
                 }
-                var html = document.getElementsByTagName("html")[0];
-                html.setAttribute("dir", toggle);
+                setDocumentDir(toggle);
                 //eventBus.$emit('directionchange');
             }
         },

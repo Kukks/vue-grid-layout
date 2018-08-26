@@ -83,6 +83,7 @@
 <script>
     import {setTopLeft, setTopRight, setTransformRtl, setTransform, createMarkup, getLayoutItem} from './utils';
     import {getControlPosition, offsetXYFromParentOf, createCoreData} from './draggableUtils';
+    import {getDocumentDir} from "./DOM";
     //    var eventBus = require('./eventBus');
 
     var interact = require("interactjs");
@@ -197,6 +198,7 @@
                 draggable: null,
                 resizable: null,
                 useCssTransforms: true,
+                fixedWidth: false,
 
                 isDragging: false,
                 dragging: null,
@@ -251,15 +253,16 @@
             };
 
             self.directionchangeHandler = (direction) => {
-                var direction = (document.dir !== undefined) ?
-                    document.dir :
-                    document.getElementsByTagName("html")[0].getAttribute("dir");
-                this.rtl = (direction === "rtl");
+                this.rtl = getDocumentDir();
                 this.compact();
             };
 
             self.setColNum = (colNum) => {
                self.cols = parseInt(colNum);
+            }
+
+            self.setFixedWidth = (hasFixedWidth) => {
+               self.fixedWidth = hasFixedWidth;
             }
 
             this.eventBus.$on('updateWidth', self.updateWidthHandler);
@@ -269,11 +272,9 @@
             this.eventBus.$on('setRowHeight', self.setRowHeightHandler);
             this.eventBus.$on('directionchange', self.directionchangeHandler);
             this.eventBus.$on('setColNum', self.setColNum);
+            this.eventBus.$on('setFixedWidth', self.setFixedWidth);
 
-            var direction = (document.dir !== undefined) ?
-                document.dir :
-                document.getElementsByTagName("html")[0].getAttribute("dir");
-            this.rtl = (direction === "rtl");
+            this.rtl = getDocumentDir();
         },
         beforeDestroy: function(){
             var self = this;
@@ -285,9 +286,12 @@
             this.eventBus.$off('setRowHeight', self.setRowHeightHandler);
             this.eventBus.$off('directionchange', self.directionchangeHandler);
             this.eventBus.$off('setColNum', self.setColNum);
+            this.eventBus.$off('setFixedWidth', self.setFixedWidth);
+            this.interactObj.unset() // destroy interact intance
         },
         mounted: function () {
             this.cols = this.$parent.colNum;
+            this.fixedWidth = this.$parent.fixedWidth;
             this.rowHeight = this.$parent.rowHeight;
             this.containerWidth = this.$parent.width !== null ? this.$parent.width : 100;
             this.margin = this.$parent.margin !== undefined ? this.$parent.margin : [10, 10];
@@ -337,43 +341,20 @@
                 this.resizable = this.isResizable;
             },
             resizable: function () {
-                var self = this;
-                if (this.interactObj === null || this.interactObj === undefined) {
-                    this.interactObj = interact(this.$refs.item);
-                }
-                if (this.resizable) {
-                    var opts = {
-                        preserveAspectRatio: false,
-                        edges: {
-                            left: false,
-                            right: "." + this.resizableHandleClass,
-                            bottom: "." + this.resizableHandleClass,
-                            top: false
-                        },
-                        ignoreFrom: this.resizeIgnoreFrom
-                    };
-
-                    this.interactObj.resizable(opts);
-                    if (!this.resizeEventSet) {
-                        this.resizeEventSet = true;
-                        this.interactObj
-                            .on('resizestart resizemove resizeend', function (event) {
-                                self.handleResize(event);
-                            });
-                    }
-                } else {
-                    this.interactObj.resizable({
-                        enabled: false
-                    });
-                }
+                this.tryMakeResizable();
             },
             rowHeight: function () {
                 this.createStyle();
             },
             cols: function () {
+                this.tryMakeResizable();
+                this.createStyle();
+            },
+            fixedWidth: function () {
                 this.createStyle();
             },
             containerWidth: function () {
+                this.tryMakeResizable();
                 this.createStyle();
             },
             x: function (newVal) {
@@ -663,7 +644,11 @@
             },
             // Helper for generating column width
             calcColWidth() {
-                var colWidth = (this.containerWidth - (this.margin[0] * (this.cols + 1))) / this.cols;
+                if (this.fixedWidth) {
+                    var colWidth = this.rowHeight;
+                } else {
+                    var colWidth = (this.containerWidth - (this.margin[0] * (this.cols + 1))) / this.cols;
+                }
                // console.log("### COLS=" + this.cols + " COL WIDTH=" + colWidth + " MARGIN " + this.margin[0]);
                 return colWidth;
             },
@@ -696,6 +681,50 @@
             },
             compact: function () {
                 this.createStyle();
+            },
+            tryMakeResizable: function(){
+                var self = this;
+                if (this.interactObj === null || this.interactObj === undefined) {
+                    this.interactObj = interact(this.$refs.item);
+                }
+                if (this.resizable) {
+                    let maximum = this.calcPosition(0,0,this.maxW, this.maxH);
+                    let minimum = this.calcPosition(0,0, this.minW, this.minH);
+
+                    var opts = {
+                        preserveAspectRatio: false,
+                        edges: {
+                            left: false,
+                            right: "." + this.resizableHandleClass,
+                            bottom: "." + this.resizableHandleClass,
+                            top: false
+                        },
+                        ignoreFrom: this.resizeIgnoreFrom,
+                        restrictSize: {
+                            min: {
+                                height: minimum.height,
+                                width: minimum.width
+                            },
+                            max: {
+                                height: maximum.height,
+                                width: maximum.width
+                            }
+                        }
+                    };
+
+                    this.interactObj.resizable(opts);
+                    if (!this.resizeEventSet) {
+                        this.resizeEventSet = true;
+                        this.interactObj
+                            .on('resizestart resizemove resizeend', function (event) {
+                                self.handleResize(event);
+                            });
+                    }
+                } else {
+                    this.interactObj.resizable({
+                        enabled: false
+                    });
+                }
             }
         },
     }

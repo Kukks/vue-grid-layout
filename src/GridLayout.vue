@@ -23,6 +23,7 @@
     import {bottom, compact, getLayoutItem, moveElement, validateLayout} from './utils';
     //var eventBus = require('./eventBus');
     import GridItem from './GridItem.vue'
+    import {addWindowEventListener, removeWindowEventListener} from "./DOM";
 
     export default {
         name: "GridLayout",
@@ -43,6 +44,10 @@
             colNum: {
                 type: Number,
                 default: 12
+            },
+            fixedWidth: {
+                type: Boolean,
+                default: false
             },
             rowHeight: {
                 type: Number,
@@ -117,9 +122,9 @@
         },
         beforeDestroy: function(){
             //Remove listeners
-            this.eventBus.$off('resizeEvent', self.resizeEventHandler);
-            this.eventBus.$off('dragEvent', self.dragEventHandler);
-            window.removeEventListener("resize", self.onWindowResize)
+            this.eventBus.$off('resizeEvent', this.resizeEventHandler);
+            this.eventBus.$off('dragEvent', this.dragEventHandler);
+            removeWindowEventListener("resize", this.onWindowResize);
         },
         mounted: function() {
             this.$nextTick(function () {
@@ -129,7 +134,7 @@
                     if (self.width === null) {
                         self.onWindowResize();
                         //self.width = self.$el.offsetWidth;
-                        window.addEventListener('resize', self.onWindowResize);
+                        addWindowEventListener('resize', self.onWindowResize);
                     }
                     compact(self.layout, self.verticalCompact);
 
@@ -143,25 +148,8 @@
                         });
                     });
                 });
-                window.onload = function() {
-                    if (self.width === null) {
-                        self.onWindowResize();
-                        //self.width = self.$el.offsetWidth;
-                        window.addEventListener('resize', self.onWindowResize);
-                    }
-                    compact(self.layout, self.verticalCompact);
 
-                    self.updateHeight();
-                    self.$nextTick(function () {
-                        var erd = elementResizeDetectorMaker({
-                            strategy: "scroll" //<- For ultra performance.
-                        });
-                        erd.listenTo(self.$refs.item, function (element) {
-                            self.onWindowResize();
-                        });
-                    });
-
-                };
+                addWindowEventListener("load", self.onWindowLoad.bind(this));
             });
         },
         watch: {
@@ -178,6 +166,9 @@
             colNum: function (val) {
                 this.eventBus.$emit("setColNum", val);
             },
+            fixedWidth: function (val) {
+                this.eventBus.$emit("setFixedWidth", val);
+            },
             rowHeight: function() {
                 this.eventBus.$emit("setRowHeight", this.rowHeight);
             },
@@ -189,6 +180,26 @@
             }
         },
         methods: {
+            onWindowLoad: function(){
+                var self = this;
+
+                if (self.width === null) {
+                    self.onWindowResize();
+                    //self.width = self.$el.offsetWidth;
+                    addWindowEventListener('resize', self.onWindowResize);
+                }
+                compact(self.layout, self.verticalCompact);
+
+                self.updateHeight();
+                self.$nextTick(function () {
+                    var erd = elementResizeDetectorMaker({
+                        strategy: "scroll" //<- For ultra performance.
+                    });
+                    erd.listenTo(self.$refs.item, function (element) {
+                        self.onWindowResize();
+                    });
+                });
+            },
             layoutUpdate() {
                 if (this.layout !== undefined) {
                     if (this.layout.length !== this.lastLayoutLength) {

@@ -21,6 +21,8 @@
     }
 </style>
 <script>
+    import {addWindowEventListener, removeWindowEventListener} from "./DOM";
+
     import Vue from 'vue';
     var elementResizeDetectorMaker = require("element-resize-detector");
 
@@ -49,6 +51,10 @@
                 type: Number,
                 default: 12
             },
+            fixedWidth: {
+                type: Boolean,
+                default: false
+            },
             rowHeight: {
                 type: Number,
                 default: 150
@@ -57,6 +63,7 @@
                 type: Number,
                 default: Infinity
             },
+            // Margin between items [x, y] in px
             margin: {
                 type: Array,
                 default: function () {
@@ -137,7 +144,7 @@
             //Remove listeners
             this.eventBus.$off('resizeEvent', self.resizeEventHandler);
             this.eventBus.$off('dragEvent', self.dragEventHandler);
-            window.removeEventListener("resize", self.onWindowResize)
+            removeWindowEventListener("resize", self.onWindowResize);
         },
         mounted: function() {
             this.$nextTick(function () {
@@ -164,24 +171,7 @@
                         });
                     });
                 });
-                window.onload = function() {
-                    if (self.width === null) {
-                        self.onWindowResize();
-                        //self.width = self.$el.offsetWidth;
-                        window.addEventListener('resize', self.onWindowResize);
-                    }
-
-                    self.updateHeight();
-                    self.$nextTick(function () {
-                        var erd = elementResizeDetectorMaker({
-                            strategy: "scroll" //<- For ultra performance.
-                        });
-                        erd.listenTo(self.$refs.item, function (element) {
-                            self.onWindowResize();
-                        });
-                    });
-
-                };
+                addWindowEventListener("load", self.onWindowLoad.bind(this));
             });
         },
         watch: {
@@ -200,6 +190,9 @@
             colNum: function (val) {
                 this.eventBus.$emit("setColNum", val);
             },
+            fixedWidth: function (val) {
+                this.eventBus.$emit("setFixedWidth", val);
+            },
             rowHeight: function() {
                 this.eventBus.$emit("setRowHeight", this.rowHeight);
             },
@@ -211,6 +204,24 @@
             }
         },
         methods: {
+            onWindowLoad(){
+                var self = this;
+                if (self.width === null) {
+                    self.onWindowResize();
+                    //self.width = self.$el.offsetWidth;
+                    addWindowEventListener('resize', self.onWindowResize);
+                }
+
+                self.updateHeight();
+                self.$nextTick(function () {
+                    var erd = elementResizeDetectorMaker({
+                        strategy: "scroll" //<- For ultra performance.
+                    });
+                    erd.listenTo(self.$refs.item, function (element) {
+                        self.onWindowResize();
+                    });
+                });
+            },
             responsiveGridLayout(){
                 let newBreakpoint = getBreakpointFromWidth(this.breakpoints, this.width);
                 let newCols = getColsFromBreakpoint(newBreakpoint, this.cols);
@@ -327,7 +338,7 @@
                 this.responsiveGridLayout();
 
                 if (eventName === 'resizeend') this.$emit('layout-updated', this.layout);
-            },
-        },
+            }
+        }
     }
 </script>
