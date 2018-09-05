@@ -314,15 +314,15 @@
                 this.draggable = this.isDraggable;
             },
             draggable: function () {
-                var self = this;
+                const self = this;
                 if (this.interactObj === null || this.interactObj === undefined) {
                     this.interactObj = interact(this.$refs.item);
                 }
                 if (this.draggable) {
-                    var opts = {
+                    const opts = {
                         ignoreFrom: this.dragIgnoreFrom,
                         allowFrom: this.dragAllowFrom
-                    }
+                    };
                     this.interactObj.draggable(opts);
                     /*this.interactObj.draggable({allowFrom: '.vue-draggable-handle'});*/
                     if (!this.dragEventSet) {
@@ -374,6 +374,8 @@
                 this.createStyle();
             },
             renderRtl: function () {
+                console.log("### renderRtl");
+                this.tryMakeResizable();
                 this.createStyle();
             }
         },
@@ -519,15 +521,15 @@
                 if (position === null) return; // not possible but satisfies flow
                 const {x, y} = position;
 
-                var shouldUpdate = false;
+                let shouldUpdate = false;
                 const newPosition = {top: 0, left: 0};
                 switch (event.type) {
                     case "dragstart":
                         this.previousX = this.innerX;
                         this.previousY = this.innerY;
 
-                        var parentRect = event.target.offsetParent.getBoundingClientRect();
-                        var clientRect = event.target.getBoundingClientRect();
+                        let parentRect = event.target.offsetParent.getBoundingClientRect();
+                        let clientRect = event.target.getBoundingClientRect();
                         if (this.renderRtl) {
                             newPosition.left = (clientRect.right - parentRect.right) * -1;
                         } else {
@@ -571,10 +573,11 @@
                 }
 
                 // Get new XY
+                let pos;
                 if (this.renderRtl) {
-                    var pos = this.calcXY(newPosition.top, newPosition.left);
+                    pos = this.calcXY(newPosition.top, newPosition.left);
                 } else {
-                    var pos = this.calcXY(newPosition.top, newPosition.left);
+                    pos = this.calcXY(newPosition.top, newPosition.left);
                 }
 
                 this.lastX = x;
@@ -591,8 +594,9 @@
             calcPosition: function (x, y, w, h) {
                 const colWidth = this.calcColWidth();
                 // add rtl support
+                let out;
                 if (this.renderRtl) {
-                    var out = {
+                    out = {
                         right: Math.round(colWidth * x + (x + 1) * this.margin[0]),
                         top: Math.round(this.rowHeight * y + (y + 1) * this.margin[1]),
                         // 0 * Infinity === NaN, which causes problems with resize constriants;
@@ -602,7 +606,7 @@
                         height: h === Infinity ? h : Math.round(this.rowHeight * h + Math.max(0, h - 1) * this.margin[1])
                     };
                 } else {
-                    var out = {
+                    out = {
                         left: Math.round(colWidth * x + (x + 1) * this.margin[0]),
                         top: Math.round(this.rowHeight * y + (y + 1) * this.margin[1]),
                         // 0 * Infinity === NaN, which causes problems with resize constriants;
@@ -644,6 +648,7 @@
             },
             // Helper for generating column width
             calcColWidth() {
+                const colWidth = (this.containerWidth - (this.margin[0] * (this.cols + 1))) / this.cols;
                 if (this.fixedWidth) {
                     var colWidth = this.rowHeight;
                 } else {
@@ -683,7 +688,7 @@
                 this.createStyle();
             },
             tryMakeResizable: function(){
-                var self = this;
+                const self = this;
                 if (this.interactObj === null || this.interactObj === undefined) {
                     this.interactObj = interact(this.$refs.item);
                 }
@@ -691,7 +696,10 @@
                     let maximum = this.calcPosition(0,0,this.maxW, this.maxH);
                     let minimum = this.calcPosition(0,0, this.minW, this.minH);
 
-                    var opts = {
+                    // console.log("### MAX " + JSON.stringify(maximum));
+                    // console.log("### MIN " + JSON.stringify(minimum));
+
+                    const opts = {
                         preserveAspectRatio: false,
                         edges: {
                             left: false,
@@ -724,6 +732,44 @@
                     this.interactObj.resizable({
                         enabled: false
                     });
+                }
+            },
+            autoSize: function() {
+                // ok here we want to calculate if a resize is needed
+                this.previousW = this.innerW;
+                this.previousH = this.innerH;
+
+                let newSize=this.$slots.default[0].elm.getBoundingClientRect();
+                let pos = this.calcWH(newSize.height, newSize.width);
+                if (pos.w < this.minW) {
+                    pos.w = this.minW;
+                }
+                if (pos.w > this.maxW) {
+                    pos.w = this.maxW;
+                }
+                if (pos.h < this.minH) {
+                    pos.h = this.minH;
+                }
+                if (pos.h > this.maxH) {
+                    pos.h = this.maxH;
+                }
+
+                if (pos.h < 1) {
+                    pos.h = 1;
+                }
+                if (pos.w < 1) {
+                    pos.w = 1;
+                }
+
+                // this.lastW = x; // basicly, this is copied from resizehandler, but shouldn't be needed
+                // this.lastH = y;
+
+                if (this.innerW !== pos.w || this.innerH !== pos.h) {
+                    this.$emit("resize", this.i, pos.h, pos.w, newSize.height, newSize.width);
+                }
+                if (this.previousW !== pos.w || this.previousH !== pos.h) {
+                    this.$emit("resized", this.i, pos.h, pos.w, newSize.height, newSize.width);
+                    this.eventBus.$emit("resizeEvent", "resizeend", this.i, this.innerX, this.innerY, pos.h, pos.w);
                 }
             }
         },
